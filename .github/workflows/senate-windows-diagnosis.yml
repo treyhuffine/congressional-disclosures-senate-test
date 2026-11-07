@@ -1,4 +1,4 @@
-name: Bounded Windows Senate diagnostic
+name: Bounded Senate acquisition diagnostic
 
 on:
   workflow_dispatch:
@@ -16,6 +16,14 @@ on:
         options:
           - http
           - browser
+      platform:
+        description: Fresh Windows or macOS hosted runner
+        type: choice
+        required: true
+        default: windows-2025
+        options:
+          - windows-2025
+          - macos-15
 
 permissions:
   contents: read
@@ -26,7 +34,7 @@ concurrency:
 
 jobs:
   diagnose:
-    runs-on: windows-2025
+    runs-on: ${{ inputs.platform }}
     timeout-minutes: 15
     defaults:
       run:
@@ -69,7 +77,7 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node diagnostics/senate-client.cjs "$pwd" "$env:DIAG_OUTPUT/fixtures" "$pwd/diagnostics/classify.py" python fixtures
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - name: Three actual headed-Edge loopback fixtures
+      - name: Four actual headed-browser loopback fixtures
         if: inputs.method == 'browser'
         run: |
           node diagnostics/browser-client.cjs "$env:DIAG_OUTPUT/browser-fixtures" fixtures
@@ -79,7 +87,7 @@ jobs:
         run: |
           node diagnostics/senate-client.cjs "$pwd" "$env:DIAG_OUTPUT/source" "$pwd/diagnostics/classify.py" python source
           exit $LASTEXITCODE
-      - name: Single bounded live headed-Edge attempt
+      - name: Single bounded live headed-browser attempt
         if: inputs.collect && inputs.method == 'browser'
         timeout-minutes: 5
         run: |

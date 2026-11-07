@@ -1,4 +1,4 @@
-# One-shot Windows Senate diagnostic
+# One-shot Senate acquisition diagnostic
 
 This fork adds a manually dispatched Windows test of the unchanged Senate HTTP
 client from upstream commit2965e8796bd4cb9423a83b964a1f9dbd076a0ad6.
@@ -38,8 +38,8 @@ rebrowser-playwright-core1.64.102 / playwright-extra4.3.6. No stealth plugin or
 identity override is applied. Ordinary site JavaScript loads normally; active
 interactive challenges stop the run. No personal profile or session is imported.
 
-Three actual Edge loopback fixtures gate the live attempt: normal empty302,
-ordinary JavaScript transition through intermediate protection, and stopping at
+Four actual Edge loopback fixtures gate the live attempt: normal empty302,
+ordinary JavaScript transition through intermediate protection, a held-open background request, and stopping at
 an active challenge. The live attempt uses November4–5 PTRs, seven-second notice
 dwell, one acknowledgement, five reports maximum, two matching exhausted index
 passes and a225-second inner deadline. CDP observations reject cached or
@@ -49,3 +49,12 @@ clocks are retained; screenshots or rendered DOM are not capture substitutes.
 This browser diagnostic is a new independent harness rather than a modification
 of the upstream HTTP source client. It creates no production schedule and writes
 no database. Each manual dispatch runs exactly one selected acquisition method.
+
+Loaded notice/jQuery readiness and a bounded dwell gate the acknowledgement.
+Background traffic is observed for at most ten seconds, recorded, and allowed
+to remain active; active challenges still stop the run.
+
+The platform input also permits macos-15. That selects an installed Chrome
+browser in a fresh profile, without changing its native identity. Each platform
+must pass its own four browser fixtures. Public logs identify which platform
+and browser were observed; OS-wide access is not inferred from one run.

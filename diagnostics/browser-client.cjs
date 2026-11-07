@@ -18,6 +18,7 @@ async function run(output, fixtureOrigin) {
   const load = createRequire(path.join(packageRoot, 'package.json'));
   const launcher = load('playwright-extra').addExtra(load('rebrowser-playwright-core').chromium);
   const candidates = process.env.SENATE_DIAGNOSTIC_BROWSER ? [process.env.SENATE_DIAGNOSTIC_BROWSER] :
+    process.platform==='darwin' ? ['/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'] :
     ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe'];
   let executable;
   for (const candidate of candidates) try { await fs.access(candidate); executable = candidate; break; } catch {}
@@ -144,7 +145,8 @@ async function run(output, fixtureOrigin) {
     const box=page.locator('#agree_statement');await box.hover();
     const until=Date.now()+(fixtureOrigin?0:7000);
     while(Date.now()<until){await challenge(page);await pause(100);}
-    const quietDeadline=Date.now()+10000;while(pending.size||Date.now()-lastActivity<500){await challenge(page);if(Date.now()>quietDeadline)fail('notice_network_not_quiet');await pause(100);}
+    const quietDeadline=Date.now()+10000;while(pending.size||Date.now()-lastActivity<500){await challenge(page);if(Date.now()>quietDeadline){m.notice_network_quiet=false;m.notice_pending_resources=[...pending].map(q=>{const u=new URL(q.url());return{scheme:u.protocol,host:u.hostname,path:/^https?:$/.test(u.protocol)?(u.pathname.length<160?u.pathname:'<opaque-path>'):'<non-http>',type:q.resourceType(),method:q.method()};});break;}await pause(100);}
+    m.notice_network_quiet??=true;
     await challenge(page);m.stage='acknowledgement';m.acknowledgements=1;
     const navigation=page.waitForNavigation({waitUntil:'domcontentloaded'});
     await box.click({delay:fixtureOrigin?0:80});await navigation;
@@ -181,13 +183,14 @@ async function run(output, fixtureOrigin) {
 
 async function fixtures() {
   const results=[],ptr='/search/view/ptr/a89c0c6b-4c12-4955-98f9-3a54ca52d8a3/';
-  for(const mode of ['normal','intermediate','challenge']){
+  for(const mode of ['normal','intermediate','background','challenge']){
     let acknowledgements=0,indexes=0;
     const server=http.createServer(async(req,res)=>{
       for await(const _ of req){}
       res.setHeader('content-type','text/html');
-      if(req.url==='/search/home/'&&req.method==='GET')res.end('<form method="POST"><label><input id="agree_statement" type="checkbox" onclick="this.form.submit()">Agree</label></form><p>news and communications media; credit rating; solicitation of money</p><script>window.jQuery=f=>f()</script>');
-      else if(req.url==='/search/home/'){acknowledgements++;if(mode==='normal'){res.writeHead(302,{'location':'/ready','content-length':'0'});res.end();}else res.end(mode==='intermediate'?'<form name="sec_sbsd_chlge_form"></form><div id="sec-if-cpt-container"></div><script>setTimeout(()=>location.href="/ready",200)</script>':'<div id="sec-if-cpt-container"></div><script>setTimeout(()=>document.querySelector("div").innerHTML="<button>Verify</button>",200)</script>');}
+      if(req.url==='/search/home/'&&req.method==='GET')res.end('<form method="POST"><label><input id="agree_statement" type="checkbox" onclick="this.form.submit()">Agree</label></form><p>news and communications media; credit rating; solicitation of money</p><script>window.jQuery=f=>f()</script>'+(mode==='background'?"<script>fetch('/background').then(r=>r.text())</script>":''));
+      else if(req.url==='/search/home/'){acknowledgements++;if(mode==='normal'||mode==='background'){res.writeHead(302,{'location':'/ready','content-length':'0'});res.end();}else res.end(mode==='intermediate'?'<form name="sec_sbsd_chlge_form"></form><div id="sec-if-cpt-container"></div><script>setTimeout(()=>location.href="/ready",200)</script>':'<div id="sec-if-cpt-container"></div><script>setTimeout(()=>document.querySelector("div").innerHTML="<button>Verify</button>",200)</script>');}
+      else if(req.url==='/background'){res.writeHead(200,{'content-type':'text/plain'});res.write('held open');}
       else if(req.url==='/ready')res.end('<label>Periodic Transactions<input type="checkbox"></label><input id="fromDate"><input id="toDate"><button id="again" style="display:none" onclick="this.style.display=\'none\'">Search Again</button><button onclick="fetch(\'/search/report/data/\',{method:\'POST\'}).then(r=>r.json()).then(()=>document.getElementById(\'again\').style.display=\'inline\')">Search Reports</button>');
       else if(req.url==='/search/report/data/'){indexes++;res.setHeader('content-type','application/json');res.end(JSON.stringify({recordsFiltered:1,data:[['Fixture','Senator','Fixture','<a href="'+ptr+'">PTR</a>','11/04/2026']]}));}
       else if(req.url===ptr)res.end('<h1>Periodic Transaction Report</h1><table><th>Transaction Date</th><td>Fixture</td></table>');
@@ -200,6 +203,7 @@ async function fixtures() {
     if(acknowledgements!==1||!result.profile_removed||!result.all_requests_accounted)throw Error('fixture accounting failed');
     if(mode==='challenge'?(result.reason!=='source_interactive_challenge'||indexes!==0):(!result.complete||indexes!==2||result.reports.length!==1))
       throw Error('browser fixture failed: '+mode);
+    if(mode==='background'&&(result.notice_network_quiet!==false||!result.notice_pending_resources.some(r=>r.path==='/background')))throw Error('held-open background fixture did not exercise readiness');
     results.push({mode,passed:true,source_requests:0});
   }
   await fs.writeFile(path.join(outputRoot,'FIXTURES_PASSED.json'),JSON.stringify(results,null,2)+'\n');
