@@ -2,8 +2,10 @@
 
 This fork adds a manually dispatched Windows test of the unchanged Senate HTTP
 client from upstream commit2965e8796bd4cb9423a83b964a1f9dbd076a0ad6.
-The upstream project and license remain intact. This diagnostic does not claim
-that Windows or Linux acquisition works until a live run demonstrates it.
+The upstream project and license remain intact. The unchanged HTTP client returned
+notice200 then acknowledgement403 on Windows and Linux. Fresh headed Windows Edge
+subsequently completed two fully automated live captures; Linux browser acquisition
+remains denied in the tested configurations. The exact protection rule is unknown.
 
 The workflow builds under Node22.23.4 and runs four loopback protocol fixtures.
 Only an explicit collect=true dispatch then permits one fresh notice
@@ -58,3 +60,53 @@ The platform input also permits macos-15. That selects an installed Chrome
 browser in a fresh profile, without changing its native identity. Each platform
 must pass its own four browser fixtures. Public logs identify which platform
 and browser were observed; OS-wide access is not inferred from one run.
+
+## Reproduced cloud result and one-command caller
+
+Two fresh GitHub-hosted Windows jobs using this exact worker commit succeeded:
+
+- [First capture](https://github.com/treyhuffine/congressional-disclosures-senate-test/actions/runs/42338917021)
+- [Fresh repeat](https://github.com/treyhuffine/congressional-disclosures-senate-test/actions/runs/42339495122)
+
+Each captured the same November4 filing (four transactions) for the November4–5,2026
+window: eight original HTTP receipts, one empty acknowledgement302, report HTML and
+two independent network index JSON responses. Both bundles passed independent native
+content/accounting checks and a persistence-forbidden dry-run in the consuming project.
+This is one distinct filing observed twice, not a full-history or recurring-service test.
+
+The tag `senate-browser-qualified-20261106` pins worker commit
+`5d750416b27532107517570e6d0b1fae7d406637`. Installed Edge and the hosted image can
+change; every run records observed versions and gates itself on real browser fixtures.
+The macOS platform option is prepared but has not been live-tested here.
+
+A Linux, Mac or Windows caller needs Python3.10+, Node22+ and authenticated GitHub CLI
+with permission to dispatch this fork's workflow and manage its repository Actions
+secret. No local browser, Windows desktop, copied cookies or PowerShell is required:
+
+```sh
+git clone --branch codex/windows-senate-trial https://github.com/treyhuffine/congressional-disclosures-senate-test.git
+cd congressional-disclosures-senate-test
+python3 diagnostics/test-run-trial.py
+python3 diagnostics/run-trial.py --output ./private-fixture-run
+```
+
+That last command is **fixture-only**, with no Senate request. For one bounded live
+capture of the fixed qualified window, use a new output path and explicit collection:
+
+```sh
+python3 diagnostics/run-trial.py --output ./private-live-run --collect
+```
+
+The caller verifies the qualified tag's commit, refuses another active diagnostic or
+existing evidence key, creates a one-time key, dispatches, waits, downloads and
+authenticates the encrypted artifact, and writes originals privately under
+`private-evidence/source/capture`. Its `RESULT.json` records the worker/run and cleanup.
+It removes the repository secret and local key after the job reaches terminal state.
+A timeout cancels only its identified dispatch. If terminal state cannot be established,
+it preserves the key outside evidence and records recovery/cleanup requirements;
+resolve those before another run. Do not dispatch concurrent callers manually.
+
+Use `--repo OWNER/FORK` only for a fork with this workflow and the same qualified tag.
+There is no schedule, automatic denial retry, database import or source activation.
+The dated window is deliberate: generalizing dates, larger pagination and unattended
+integration belong in a separate reviewed change after this acquisition proof.
