@@ -29,3 +29,23 @@ response directories, HAR files, browser profiles or session bundles.
 
 The repository owner must retain the decryption key privately until reviewing
 the artifact. This diagnostic is not a production collection schedule.
+
+## Headed Edge comparison
+
+The method=browser option uses installed Edge with a fresh temporary profile,
+its normal user agent and headers, sandboxing requested, and pinned
+rebrowser-playwright-core1.64.102 / playwright-extra4.3.6. No stealth plugin or
+identity override is applied. Ordinary site JavaScript loads normally; active
+interactive challenges stop the run. No personal profile or session is imported.
+
+Three actual Edge loopback fixtures gate the live attempt: normal empty302,
+ordinary JavaScript transition through intermediate protection, and stopping at
+an active challenge. The live attempt uses November4–5 PTRs, seven-second notice
+dwell, one acknowledgement, five reports maximum, two matching exhausted index
+passes and a225-second inner deadline. CDP observations reject cached or
+service-worker index responses. Original HTTP HTML/JSON bodies, hashes and
+clocks are retained; screenshots or rendered DOM are not capture substitutes.
+
+This browser diagnostic is a new independent harness rather than a modification
+of the upstream HTTP source client. It creates no production schedule and writes
+no database. Each manual dispatch runs exactly one selected acquisition method.

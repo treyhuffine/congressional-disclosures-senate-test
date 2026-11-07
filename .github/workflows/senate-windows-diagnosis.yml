@@ -8,6 +8,14 @@ on:
         type: boolean
         required: true
         default: false
+      method:
+        description: Unchanged Node HTTP client or fresh headed Edge
+        type: choice
+        required: true
+        default: http
+        options:
+          - http
+          - browser
 
 permissions:
   contents: read
@@ -50,16 +58,32 @@ jobs:
           npm run build --workspace congressional-disclosures
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node -e "require('fs').writeFileSync(process.env.DIAG_OUTPUT+'/runner.json',JSON.stringify({node:process.version,openssl:process.versions.openssl,undici:process.versions.undici,platform:process.platform,arch:process.arch,os:require('os').release()}))"
+      - name: Prepare pinned browser runtime
+        if: inputs.method == 'browser'
+        run: |
+          npm ci --prefix diagnostics/browser-runtime --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+          exit $LASTEXITCODE
       - name: Encryption checks and four loopback protocol fixtures
         run: |
           node diagnostics/test-protect.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node diagnostics/senate-client.cjs "$pwd" "$env:DIAG_OUTPUT/fixtures" "$pwd/diagnostics/classify.py" python fixtures
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - name: Single bounded live attempt
-        if: inputs.collect
+      - name: Three actual headed-Edge loopback fixtures
+        if: inputs.method == 'browser'
+        run: |
+          node diagnostics/browser-client.cjs "$env:DIAG_OUTPUT/browser-fixtures" fixtures
+          exit $LASTEXITCODE
+      - name: Single bounded live HTTP attempt
+        if: inputs.collect && inputs.method == 'http'
         run: |
           node diagnostics/senate-client.cjs "$pwd" "$env:DIAG_OUTPUT/source" "$pwd/diagnostics/classify.py" python source
+          exit $LASTEXITCODE
+      - name: Single bounded live headed-Edge attempt
+        if: inputs.collect && inputs.method == 'browser'
+        timeout-minutes: 5
+        run: |
+          node diagnostics/browser-client.cjs "$env:DIAG_OUTPUT/source" source
           exit $LASTEXITCODE
       - name: Encrypt original evidence
         if: always()

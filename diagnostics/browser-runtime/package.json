@@ -1,0 +1,9 @@
+{
+  "name": "senate-browser-diagnostic-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "playwright-extra": "4.3.6",
+    "rebrowser-playwright-core": "1.64.102"
+  }
+}
