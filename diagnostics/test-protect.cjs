@@ -1,0 +1,13 @@
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const { encrypt, decrypt } = require('./protect.cjs');
+const key = crypto.randomBytes(32), input = Buffer.from('SYNTHETIC_FIXTURE_BODY');
+const first = encrypt(input, key), second = encrypt(input, key);
+assert(!first.equals(second));
+assert(decrypt(first, key).equals(input));
+first[first.length - 1] ^= 1;
+assert.throws(() => decrypt(first, key));
+assert.throws(() => decrypt(second, crypto.randomBytes(32)));
+assert.throws(() => encrypt(input, Buffer.alloc(31)));
+key.fill(0);
+console.log('Artifact encryption round-trip, unique nonce and tamper rejection passed.');

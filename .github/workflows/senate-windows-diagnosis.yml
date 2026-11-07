@@ -1,0 +1,83 @@
+name: Bounded Windows Senate diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      collect:
+        description: One live Senate attempt after four fixtures; no retries
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: senate-windows-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DIAG_OUTPUT: ${{ runner.temp }}/senate-diagnostic
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22.23.4
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - name: Require private evidence encryption before any source access
+        env:
+          SENATE_EVIDENCE_KEY: ${{ secrets.SENATE_EVIDENCE_KEY }}
+        run: |
+          $ErrorActionPreference='Stop'
+          if([string]::IsNullOrEmpty($env:SENATE_EVIDENCE_KEY)){throw 'One-time evidence key missing; no source access'}
+          if([Convert]::FromBase64String($env:SENATE_EVIDENCE_KEY).Length -ne 32){throw 'Invalid evidence key'}
+          New-Item -ItemType Directory -Path $env:DIAG_OUTPUT | Out-Null
+      - name: Build unchanged upstream source client
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          npm run build --workspace congressional-disclosures
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node -e "require('fs').writeFileSync(process.env.DIAG_OUTPUT+'/runner.json',JSON.stringify({node:process.version,openssl:process.versions.openssl,undici:process.versions.undici,platform:process.platform,arch:process.arch,os:require('os').release()}))"
+      - name: Encryption checks and four loopback protocol fixtures
+        run: |
+          node diagnostics/test-protect.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node diagnostics/senate-client.cjs "$pwd" "$env:DIAG_OUTPUT/fixtures" "$pwd/diagnostics/classify.py" python fixtures
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Single bounded live attempt
+        if: inputs.collect
+        run: |
+          node diagnostics/senate-client.cjs "$pwd" "$env:DIAG_OUTPUT/source" "$pwd/diagnostics/classify.py" python source
+          exit $LASTEXITCODE
+      - name: Encrypt original evidence
+        if: always()
+        env:
+          SENATE_EVIDENCE_KEY: ${{ secrets.SENATE_EVIDENCE_KEY }}
+        run: |
+          if(!(Test-Path -LiteralPath $env:DIAG_OUTPUT)){throw 'No evidence directory'}
+          $zip=Join-Path $env:RUNNER_TEMP 'senate-evidence.zip'
+          python -c "import pathlib,sys,zipfile;p=pathlib.Path(sys.argv[1]);files=[q for q in p.rglob('*') if q.is_file()];assert sum(q.stat().st_size for q in files)<32*1024**2;z=zipfile.ZipFile(sys.argv[2],'x',zipfile.ZIP_DEFLATED);[(z.write(q,q.relative_to(p))) for q in files];z.close()" "$env:DIAG_OUTPUT" "$zip"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node diagnostics/protect.cjs "$zip" "$env:RUNNER_TEMP/senate-evidence.enc"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          Remove-Item -LiteralPath $zip
+      - name: Upload encrypted artifact only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: senate-encrypted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/senate-evidence.enc
+          retention-days: 1
+          if-no-files-found: error
