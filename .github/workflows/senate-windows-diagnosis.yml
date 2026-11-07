@@ -23,8 +23,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-    env:
-      DIAG_OUTPUT: ${{ runner.temp }}/senate-diagnostic
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -42,7 +40,9 @@ jobs:
           $ErrorActionPreference='Stop'
           if([string]::IsNullOrEmpty($env:SENATE_EVIDENCE_KEY)){throw 'One-time evidence key missing; no source access'}
           if([Convert]::FromBase64String($env:SENATE_EVIDENCE_KEY).Length -ne 32){throw 'Invalid evidence key'}
-          New-Item -ItemType Directory -Path $env:DIAG_OUTPUT | Out-Null
+          $diagnosticOutput=Join-Path $env:RUNNER_TEMP 'senate-diagnostic'
+          "DIAG_OUTPUT=$diagnosticOutput" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          New-Item -ItemType Directory -Path $diagnosticOutput | Out-Null
       - name: Build unchanged upstream source client
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
