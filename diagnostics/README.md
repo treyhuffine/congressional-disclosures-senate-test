@@ -110,3 +110,63 @@ Use `--repo OWNER/FORK` only for a fork with this workflow and the same qualifie
 There is no schedule, automatic denial retry, database import or source activation.
 The dated window is deliberate: generalizing dates, larger pagination and unattended
 integration belong in a separate reviewed change after this acquisition proof.
+
+## All-report extension (separate from the qualified PTR-only worker)
+
+`senate-all-reports.yml` is a manual-only all-report capture/extraction workflow. It
+selects every visible report/filer category, paginates the entire bounded query,
+then repeats the exhausted index around original HTML, PDF and ordered scan-page
+capture. Overflow, changed bookends, missing pages, unexpected media, denial and
+interactive challenges make incompleteness visible. Known annual/other forms stay
+separate document types; they are not forced into a transaction schema.
+
+Sixteen actual-browser loopback cases cover mixed forms, pagination, PDF redirects,
+empty results, changed totals/bookends, duplicate report IDs/pages, missing filters,
+missing media, unsupported bodies, external-media rejection, denial and challenge.
+These are synthetic fixtures, not live Senate evidence. The original qualified tag
+and its successful PTR captures remain unchanged.
+
+The second job is standard Ubuntu running free Tesseract/Poppler. It makes no Senate
+requests and no paid-provider calls. It produces searchable text for every page,
+electronic-table transaction proposals, per-document/page provenance and explicit
+review status. No database is opened or production source activated. Only encrypted
+artifacts leave the runners; `run-collection.py` privately retrieves them with a
+one-time key and checks the expected worker commit. New source attempts are opt-in.
+
+The OCR stage also runs outside Actions: `extract-held.cjs CAPTURE NEW_OUTPUT` uses
+the same held bundle on a Linux or Mac machine with Node, Tesseract, Poppler and the
+built upstream package. Delivery is independent: the default downloads a private
+folder for the consumer to store; there is no hard-coded database or bucket.
+
+### Replace the OCR engine without changing collection
+
+`processCapture(capture, output, settings, adapters)` accepts these narrow ports:
+
+- `readLocalPage(image, scratchDirectory, pageIndex)` for an offline engine, returning
+  `{markdown, rotation, engine, review_required}`. Input is an uprightable PNG page;
+  raw originals and source page order remain immutable.
+- `ocr.readImage(image, label)` returning `{markdown, payload}` for a hosted OCR engine.
+- Optional `completion.complete(request)` returning `{payload, usage}` for the existing
+  upstream PTR row-coverage and independent OCR/vision/reconciling-read pipeline.
+- `networkOrigins` lists explicitly allowed HTTPS provider origins for an external adapter.
+
+A trusted operator module can export a factory returning these adapters. Supply
+`--adapter /absolute/adapter.cjs`; external requests additionally require explicit
+`--allow-network`. Never load an adapter specified by source content. The default
+uses local OCR only. The example Mistral/OpenRouter clients remain optional adapters,
+not a requirement or configured account. No paid credentials are supplied by the
+Actions workflow. Provider keys belong in a secret manager, never source or logs.
+
+OCR text stays fallible. Unreadable/ambiguous pages retain review status; a scan without
+model extraction is not mislabeled as zero transactions. Model results are proposals,
+not automatic native-source admission. The real local OCR plus actual upstream consensus
+path is tested using synthetic pages and loopback fake provider HTTP endpoints with
+zero paid requests; live hosted-OCR quality/cost is not established by those tests.
+
+Discovery completeness is bounded to stable observed query rows. No workflow can
+promise future publication timing or perfect OCR. Production integration should retain
+an idempotent UUID ledger, overlapping windows, gap reconciliation and failure alerts.
+This workflow is not scheduled; the old fixed-date/five-report worker is a reproducibility
+control, not an all-filing discovery service. Standard public runners are free; private
+Windows/Ubuntu runner usage is billed after the included allowance. Storage and optional
+external OCR are separate. Repository visibility is a choice, not a parser dependency.

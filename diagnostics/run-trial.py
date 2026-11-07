@@ -52,11 +52,11 @@ def runs(repo):
     )
 
 
-def unpack(archive, output):
+def unpack(archive, output, *, max_bytes=32 * 1024**2, max_file=8 * 1024**2, max_files=1000):
     """Reject escaping, duplicate, linked, or oversized artifact members."""
     with zipfile.ZipFile(archive) as entries:
         files = entries.infolist()
-        if len(files) > 1000 or sum(x.file_size for x in files) > 32 * 1024**2:
+        if len(files) > max_files or sum(x.file_size for x in files) > max_bytes:
             raise ValueError("artifact exceeds bounds")
         names = set()
         for item in files:
@@ -67,7 +67,7 @@ def unpack(archive, output):
                 or "\\" in item.filename
                 or ":" in item.filename
                 or item.filename in names
-                or item.file_size > 8 * 1024**2
+                or item.file_size > max_file
                 or stat.S_ISLNK(item.external_attr >> 16)
             ):
                 raise ValueError("unsafe artifact member")

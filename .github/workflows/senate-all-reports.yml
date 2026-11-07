@@ -1,0 +1,152 @@
+name: Bounded all-report Senate capture and extraction
+on:
+  workflow_dispatch:
+    inputs:
+      collect:
+        description: One live source attempt after loopback fixtures
+        type: boolean
+        default: false
+      lower:
+        description: Inclusive filing-date start YYYY-MM-DD (at most 31 days)
+        type: string
+        default: '2026-11-02'
+      upper:
+        description: Inclusive filing-date end YYYY-MM-DD
+        type: string
+        default: '2026-11-06'
+      max_reports:
+        description: Exhausted-query bound; overflow fails visibly
+        type: number
+        default: 10
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: senate-all-report-diagnostic
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22.23.4
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - name: Require private encryption before any source access
+        env:
+          SENATE_EVIDENCE_KEY: ${{ secrets.SENATE_EVIDENCE_KEY }}
+        run: |
+          $ErrorActionPreference='Stop'
+          if([string]::IsNullOrEmpty($env:SENATE_EVIDENCE_KEY)){throw 'Evidence key required'}
+          if([Convert]::FromBase64String($env:SENATE_EVIDENCE_KEY).Length -ne 32){throw 'Invalid evidence key'}
+          $output=Join-Path $env:RUNNER_TEMP 'senate-all-capture'
+          "DIAG_OUTPUT=$output" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          New-Item -ItemType Directory -Path $output | Out-Null
+      - name: Build unchanged upstream and pinned browser runtime
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          npm run build --workspace congressional-disclosures
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          npm ci --prefix diagnostics/browser-runtime --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+          exit $LASTEXITCODE
+      - name: Encryption and sixteen actual-browser loopback fixtures
+        run: |
+          node diagnostics/test-protect.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node diagnostics/test-all-reports.cjs "$env:DIAG_OUTPUT/browser-fixtures"
+          exit $LASTEXITCODE
+      - name: One bounded all-type source capture
+        if: inputs.collect
+        timeout-minutes: 5
+        env:
+          QUERY_LOWER: ${{ inputs.lower }}
+          QUERY_UPPER: ${{ inputs.upper }}
+          QUERY_MAX_REPORTS: ${{ inputs.max_reports }}
+        run: |
+          $env:SENATE_COLLECTION_OPTIONS=node -e "process.stdout.write(JSON.stringify({lower:process.env.QUERY_LOWER,upper:process.env.QUERY_UPPER,maxReports:Number(process.env.QUERY_MAX_REPORTS),maxAssets:200,deadlineMs:240000}))"
+          node diagnostics/all-reports.cjs "$env:DIAG_OUTPUT/source"
+          exit $LASTEXITCODE
+      - name: Encrypt originals before upload
+        if: always()
+        env:
+          SENATE_EVIDENCE_KEY: ${{ secrets.SENATE_EVIDENCE_KEY }}
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'senate-all.zip'
+          python diagnostics/archive-all.py pack "$env:DIAG_OUTPUT" "$zip"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node diagnostics/protect.cjs "$zip" "$env:RUNNER_TEMP/senate-capture.enc"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          Remove-Item -LiteralPath $zip
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: senate-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/senate-capture.enc
+          retention-days: 1
+          if-no-files-found: error
+  extract:
+    needs: capture
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22.23.4
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: senate-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/encrypted-capture
+      - name: Authenticate and privately unpack originals
+        env:
+          SENATE_EVIDENCE_KEY: ${{ secrets.SENATE_EVIDENCE_KEY }}
+        run: |
+          set -euo pipefail
+          node diagnostics/protect.cjs --decrypt "$RUNNER_TEMP/encrypted-capture/senate-capture.enc" "$RUNNER_TEMP/source.zip"
+          python diagnostics/archive-all.py unpack "$RUNNER_TEMP/source.zip" "$RUNNER_TEMP/senate-all-extract"
+          rm "$RUNNER_TEMP/source.zip"
+          echo "DIAG_OUTPUT=$RUNNER_TEMP/senate-all-extract" >> "$GITHUB_ENV"
+      - name: Prepare free local OCR in disposable runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build --workspace congressional-disclosures
+      - name: Real local OCR and upstream consensus with loopback providers only
+        run: node diagnostics/test-extract-held.cjs "$DIAG_OUTPUT/extraction-fixtures" "$DIAG_OUTPUT/browser-fixtures/mixed"
+      - name: Extract held source documents only
+        if: inputs.collect && needs.capture.result == 'success'
+        run: node diagnostics/extract-held.cjs "$DIAG_OUTPUT/source/capture" "$DIAG_OUTPUT/extracted"
+      - name: Encrypt complete evidence and extraction outputs
+        if: always()
+        env:
+          SENATE_EVIDENCE_KEY: ${{ secrets.SENATE_EVIDENCE_KEY }}
+        run: |
+          set -euo pipefail
+          python diagnostics/archive-all.py pack "$DIAG_OUTPUT" "$RUNNER_TEMP/all.zip"
+          node diagnostics/protect.cjs "$RUNNER_TEMP/all.zip" "$RUNNER_TEMP/senate-all.enc"
+          rm "$RUNNER_TEMP/all.zip"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: senate-all-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/senate-all.enc
+          retention-days: 1
+          if-no-files-found: error
