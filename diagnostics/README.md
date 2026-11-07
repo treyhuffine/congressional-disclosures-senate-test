@@ -170,3 +170,40 @@ This workflow is not scheduled; the old fixed-date/five-report worker is a repro
 control, not an all-filing discovery service. Standard public runners are free; private
 Windows/Ubuntu runner usage is billed after the included allowance. Storage and optional
 external OCR are separate. Repository visibility is a choice, not a parser dependency.
+
+### Verified all-report window
+
+[Run42392463123](https://github.com/treyhuffine/congressional-disclosures-senate-test/actions/runs/42392463123)
+at `ccfc3b8920e53ca3f34599f603863561144b98b1` passed both jobs and all fixture gates.
+The immutable tag `senate-all-reports-20261107` pins that worker. All three November2–6
+results were retained: two electronic PTRs (six physical transactions) and a candidate
+annual-report Amendment2. Thirteen original HTTP receipts and both independently
+networked complete index passes verify; file-only consumer checks pass. This window
+contains no actual scan/PDF assets. Paper/PDF cases are fixture-tested, not live-paper
+qualification. The current native electronic-PTR importer remains a separate gate.
+
+To reproduce fixture-only (no Senate request), use a new private output path:
+
+```sh
+python3 diagnostics/run-collection.py \
+  --ref senate-all-reports-20261107 \
+  --expected-sha ccfc3b8920e53ca3f34599f603863561144b98b1 \
+  --lower 2026-11-02 --upper 2026-11-06 --max-reports 10 \
+  --output ./private-all-fixtures
+```
+
+Add `--collect` and choose a new output path for one live source attempt. Choose explicit
+current dates for another bounded query (at most31 days). All visible report/filer categories
+are selected; report-count overflow fails visibly. The caller refuses overlapping collection
+or an existing key and verifies the requested ref still points at the expected commit.
+It retrieves authenticated private evidence, removes the repository secret and local key,
+and preserves a recovery key outside evidence if retrieval/cancellation is unresolved.
+Resolve any recorded cleanup requirement before another attempt. No denial retry is automated.
+
+The observed full diagnostic run took6m50s: Windows2m16s (actual Senate36.7s), Linux4m26s,
+mostly its full local-OCR/consensus test gate. The three source documents were HTML, so live
+source extraction made zero hosted-OCR/model calls. Production runtime depends on scan volume.
+Standard public runners remain free; at private baseline rates and these observed durations,
+rounded job usage would be3 Windows minutes plus5 Linux minutes = $0.06 before included
+allowance. Private hardware/runtime can differ. Storage and optional future external OCR are
+separate; no paid provider is configured. No schedule or delivery destination has been enabled.
